@@ -10,7 +10,6 @@ FITZPATRICK_L_RANGES = [
     (6,  0, 25),
 ]
 
-
 def _L_to_fototipo(L_norm: float) -> int:
     for fototipo, lo, hi in FITZPATRICK_L_RANGES:
         if lo <= L_norm < hi:
@@ -21,16 +20,12 @@ def _L_to_fototipo(L_norm: float) -> int:
 def _analizar_imagen(image_bytes: bytes) -> dict:
     arr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-
     if img is None:
         return {"ok": False}
-
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     L, A, B = cv2.split(lab)
-
     L_mean = float(np.mean(L)) / 255.0 * 100.0
     b_mean = float(np.mean(B)) - 128.0
-
     return {
         "ok":           True,
         "fototipo_img": _L_to_fototipo(L_mean),
@@ -40,22 +35,20 @@ def _analizar_imagen(image_bytes: bytes) -> dict:
 
 
 def _analizar_cuestionario(resp: dict) -> dict:
+    # ── Fototipo ──────────────────────────────────────────────────────────────
     try:
         skin_val = int(resp.get("skin", 3))
     except (ValueError, TypeError):
         skin_val = 3
 
-    try:
-        sun_val = int(resp.get("sun", 2))
-    except (ValueError, TypeError):
-        sun_val = 2
-
     freckles     = resp.get("freckles", "no")
     freckles_adj = -1 if freckles == "yes" else 0
 
-    fototipo_q = round(skin_val * 0.60 + sun_val * 0.40) + freckles_adj
+    # skin ahora tiene más peso (0.85) porque ya no hay sun para complementarlo
+    fototipo_q = round(skin_val * 0.85) + freckles_adj
     fototipo_q = max(1, min(6, fototipo_q))
 
+    # ── Subtono ───────────────────────────────────────────────────────────────
     score = 0.0
 
     vein = resp.get("vein", "neutral")
@@ -63,19 +56,30 @@ def _analizar_cuestionario(resp: dict) -> dict:
     elif vein == "warm": score += 2.5
 
     eye_map = {
-        "blue": -1.5, "gray": -1.0, "green": -0.5,
-        "hazel": 0.5, "brown": 1.0, "dbrown": 1.5,
+        "blue":   -1.5,
+        "gray":   -1.0,
+        "green":  -0.5,
+        "hazel":   0.5,
+        "brown":   1.0,
+        "dbrown":  1.5,
     }
     score += eye_map.get(resp.get("eye", "brown"), 0.0)
 
     hair_map = {
-        "blonde": -1.0, "red": -0.5, "lbrown": 0.5,
-        "brown": 0.5, "dbrown": 1.0, "black": 1.0,
+        "blonde": -1.0,
+        "red":    -0.5,
+        "lbrown":  0.5,
+        "brown":   0.5,
+        "dbrown":  1.0,
+        "black":   1.0,
     }
     score += hair_map.get(resp.get("hair", "brown"), 0.0)
 
     base_map = {
-        "rosada": -1.0, "beige": 0.0, "oliva": 1.0, "cafe": 1.5,
+        "rosada": -1.0,
+        "beige":   0.0,
+        "oliva":   1.0,
+        "cafe":    1.5,
     }
     score += base_map.get(resp.get("base", "beige"), 0.0)
 
@@ -86,7 +90,9 @@ def _analizar_cuestionario(resp: dict) -> dict:
     else:
         subtono = "neutro"
 
-    campos      = ["skin", "eye", "hair", "vein", "sun", "freckles", "base"]
+    # ── Confianza ─────────────────────────────────────────────────────────────
+    # tipo_piel reemplaza a sun en el conteo de campos respondidos
+    campos      = ["skin", "eye", "hair", "vein", "tipo_piel", "freckles", "base"]
     respondidos = sum(1 for c in campos if resp.get(c, ""))
     confianza_q = round(0.50 + (respondidos / len(campos)) * 0.45, 3)
 
@@ -109,9 +115,11 @@ def analyze_color(image_bytes: bytes, cuestionario: dict = None) -> dict:
     confianza  = q_result["confianza_q"]
 
     if img_result["ok"]:
+        # skin (0.85) + imagen (0.35) para el fototipo final
         fototipo_raw = img_result["fototipo_img"] * 0.35 + fototipo_q * 0.65
         fototipo     = max(1, min(6, round(fototipo_raw)))
 
+        # Si el cuestionario dejó subtono neutro, la imagen puede desempatarlo
         if subtono == "neutro":
             b = img_result["b_star"]
             if b > 8:    subtono = "calido"

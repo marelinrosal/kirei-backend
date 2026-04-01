@@ -122,7 +122,7 @@ async def analizar(
                 "eye":         datos.get("eye"),
                 "hair":        datos.get("hair"),
                 "vein":        datos.get("vein"),
-                "sun":         datos.get("sun"),
+                "tipo_piel":   datos.get("tipo_piel"),
                 "freckles":    datos.get("freckles"),
                 "base":        datos.get("base"),
             })
