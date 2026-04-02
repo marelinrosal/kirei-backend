@@ -41,11 +41,15 @@ def _analizar_cuestionario(resp: dict) -> dict:
     except (ValueError, TypeError):
         skin_val = 3
 
+    try:
+        sun_val = int(resp.get("sun", 2))
+    except (ValueError, TypeError):
+        sun_val = 2
+
     freckles     = resp.get("freckles", "no")
     freckles_adj = -1 if freckles == "yes" else 0
 
-    # skin ahora tiene más peso (0.85) porque ya no hay sun para complementarlo
-    fototipo_q = round(skin_val * 0.85) + freckles_adj
+    fototipo_q = round(skin_val * 0.60 + sun_val * 0.40) + freckles_adj
     fototipo_q = max(1, min(6, fototipo_q))
 
     # ── Subtono ───────────────────────────────────────────────────────────────
@@ -75,13 +79,8 @@ def _analizar_cuestionario(resp: dict) -> dict:
     }
     score += hair_map.get(resp.get("hair", "brown"), 0.0)
 
-    base_map = {
-        "rosada": -1.0,
-        "beige":   0.0,
-        "oliva":   1.0,
-        "cafe":    1.5,
-    }
-    score += base_map.get(resp.get("base", "beige"), 0.0)
+    # base eliminado — el subtono ahora se determina solo por venas, ojos y cabello
+    # tipo_piel es dato de textura, no afecta el score colorimétrico
 
     if score <= -1.5:
         subtono = "frio"
@@ -91,8 +90,7 @@ def _analizar_cuestionario(resp: dict) -> dict:
         subtono = "neutro"
 
     # ── Confianza ─────────────────────────────────────────────────────────────
-    # tipo_piel reemplaza a sun en el conteo de campos respondidos
-    campos      = ["skin", "eye", "hair", "vein", "tipo_piel", "freckles", "base"]
+    campos      = ["skin", "eye", "hair", "vein", "sun", "freckles", "tipo_piel"]
     respondidos = sum(1 for c in campos if resp.get(c, ""))
     confianza_q = round(0.50 + (respondidos / len(campos)) * 0.45, 3)
 
@@ -115,11 +113,9 @@ def analyze_color(image_bytes: bytes, cuestionario: dict = None) -> dict:
     confianza  = q_result["confianza_q"]
 
     if img_result["ok"]:
-        # skin (0.85) + imagen (0.35) para el fototipo final
         fototipo_raw = img_result["fototipo_img"] * 0.35 + fototipo_q * 0.65
         fototipo     = max(1, min(6, round(fototipo_raw)))
 
-        # Si el cuestionario dejó subtono neutro, la imagen puede desempatarlo
         if subtono == "neutro":
             b = img_result["b_star"]
             if b > 8:    subtono = "calido"

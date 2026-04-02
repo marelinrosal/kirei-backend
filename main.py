@@ -122,9 +122,9 @@ async def analizar(
                 "eye":         datos.get("eye"),
                 "hair":        datos.get("hair"),
                 "vein":        datos.get("vein"),
-                "tipo_piel":   datos.get("tipo_piel"),
+                "sun":         datos.get("sun"),
                 "freckles":    datos.get("freckles"),
-                "base":        datos.get("base"),
+                "tipo_piel":   datos.get("tipo_piel"),
             })
         except Exception as e:
             print(f"[KIREI] ADVERTENCIA respuestas_cuestionario: {e}")
