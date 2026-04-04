@@ -23,7 +23,7 @@ def root():
     return {"message": "Kirei backend — Fitzpatrick + Colorimetría ✅"}
 
 
-# ── Paletas por temporada (reemplaza las de subtono) ──────────────────────────
+# ── Paletas por temporada ─────────────────────────────────────────────────────
 PALETAS = {
     "primavera_calida": {
         "favorables":    ["coral", "durazno", "dorado cálido", "verde manzana",
@@ -87,7 +87,6 @@ PALETAS = {
     },
 }
 
-# Fallback si subtemporada no está en el mapa
 PALETA_DEFAULT = {
     "favorables":    ["nude", "blush rosado", "taupe", "vino", "verde salvia", "azul marino"],
     "desfavorables": ["naranja neón", "amarillo limón", "fucsia intenso"],
@@ -138,9 +137,8 @@ async def analizar(
                 "usuario_id":   usuario_id,
                 "fototipo":     fototipo,
                 "temporada":    temporada,
-                "subtemporada": subtemporada,   # nuevo
+                "subtemporada": subtemporada,
                 "confianza":    confianza,
-                # subtono ya no se envía
             })
             print(f"[KIREI] analisis insertado: {analisis_row}")
         except Exception as e:
@@ -148,7 +146,6 @@ async def analizar(
             return JSONResponse(status_code=500,
                 content={"error": f"Error guardando análisis: {str(e)}"})
 
-        # Validar respuesta de Supabase
         if analisis_row is None:
             print("[KIREI] Supabase devolvió None al insertar análisis")
             return JSONResponse(status_code=500,
@@ -160,7 +157,6 @@ async def analizar(
             return JSONResponse(status_code=500,
                 content={"error": f"Error en base de datos: {msg}"})
 
-        # Extraer ID
         try:
             analisis_id = analisis_row[0]["id"] if isinstance(analisis_row, list) else analisis_row["id"]
         except Exception as e:
@@ -180,9 +176,8 @@ async def analizar(
                 "sun":         datos.get("sun"),
                 "freckles":    datos.get("freckles"),
                 "tipo_piel":   datos.get("tipo_piel"),
-                "forearm":     datos.get("forearm"),     # nuevo
-                "hair_shine":  datos.get("hair_shine"),  # nuevo
-                # vein eliminado
+                "forearm":     datos.get("forearm"),
+                "hair_shine":  datos.get("hair_shine"),
             })
         except Exception as e:
             print(f"[KIREI] ADVERTENCIA respuestas_cuestionario: {e}")
@@ -202,14 +197,21 @@ async def analizar(
         except Exception as e:
             print(f"[KIREI] ADVERTENCIA recomendaciones: {e}")
 
-        # 7. Consultar productos por fototipo
+        # ── 7. Consultar productos por temporada ──────────────────────────────
+        # FIX: filtramos por temporada (no fototipo, que no existe en la tabla).
+        # Validamos que Supabase devuelva una lista y no un objeto de error.
         productos = []
         try:
-            productos = consultar("productos", {"fototipo": fototipo}) or []
+            resultado_productos = consultar("productos", {"temporada": temporada})
+            if isinstance(resultado_productos, list):
+                productos = resultado_productos
+            else:
+                # Supabase devolvió un dict de error — lo logueamos y seguimos
+                print(f"[KIREI] productos no es lista: {resultado_productos}")
         except Exception as e:
             print(f"[KIREI] ADVERTENCIA productos: {e}")
 
-        print(f"[KIREI] OK — productos: {len(productos)}")
+        print(f"[KIREI] OK — productos encontrados: {len(productos)}")
 
         return {
             "analisis_id":           analisis_id,
@@ -219,7 +221,7 @@ async def analizar(
             "confianza":             confianza,
             "colores_favorables":    paleta["favorables"],
             "colores_desfavorables": paleta["desfavorables"],
-            "productos":             productos,
+            "productos":             productos,   # siempre es lista []
         }
 
     except Exception as e:
