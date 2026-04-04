@@ -20,25 +20,77 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"message": "Kirei backend — Fitzpatrick ✅"}
+    return {"message": "Kirei backend — Fitzpatrick + Colorimetría ✅"}
 
 
+# ── Paletas por temporada (reemplaza las de subtono) ──────────────────────────
 PALETAS = {
-    "frio": {
-        "favorables":    ["rosa palo", "lavanda", "azul cielo", "lila",
-                          "gris perla", "borgoña profundo", "azul pizarra"],
-        "desfavorables": ["naranja", "mostaza", "verde oliva", "dorado", "café cálido"],
+    "primavera_calida": {
+        "favorables":    ["coral", "durazno", "dorado cálido", "verde manzana",
+                          "turquesa claro", "amarillo miel", "salmón"],
+        "desfavorables": ["negro puro", "gris frío", "borgoña oscuro", "azul marino intenso"],
     },
-    "calido": {
-        "favorables":    ["terracota", "coral", "durazno", "mostaza",
-                          "verde oliva", "dorado", "camel"],
-        "desfavorables": ["rosa frío", "lila", "azul eléctrico", "plateado", "gris frío"],
+    "primavera_brillante": {
+        "favorables":    ["coral brillante", "fucsia cálido", "amarillo limón",
+                          "verde esmeralda", "turquesa vivo", "naranja cálido"],
+        "desfavorables": ["beige apagado", "gris ratón", "marrón terroso"],
     },
-    "neutro": {
-        "favorables":    ["nude", "blush rosado", "taupe", "vino",
-                          "verde salvia", "azul marino"],
-        "desfavorables": ["naranja neón", "amarillo limón", "fucsia intenso"],
+    "primavera_clara": {
+        "favorables":    ["melocotón", "rosa pálido", "lavanda suave", "menta",
+                          "amarillo vainilla", "azul cielo", "blanco cálido"],
+        "desfavorables": ["negro", "gris oscuro", "borgoña", "mostaza intensa"],
     },
+    "verano_claro": {
+        "favorables":    ["rosa empolvado", "lavanda", "azul periwinkle",
+                          "verde salvia", "gris rosado", "blanco roto"],
+        "desfavorables": ["naranja", "mostaza", "café cálido", "dorado", "verde oliva"],
+    },
+    "verano_suave": {
+        "favorables":    ["malva", "lila", "azul acero", "verde grisáceo",
+                          "rosa palo", "nude rosado", "borgoña suave"],
+        "desfavorables": ["amarillo brillante", "naranja neón", "dorado intenso"],
+    },
+    "verano_frio": {
+        "favorables":    ["fucsia frío", "rosa chicle", "azul eléctrico",
+                          "morado pizarra", "plateado", "blanco puro"],
+        "desfavorables": ["mostaza", "terracota", "verde oliva", "camel"],
+    },
+    "otono_calido": {
+        "favorables":    ["terracota", "mostaza", "verde oliva", "camel",
+                          "naranja tostado", "café dorado", "borgoña cálido"],
+        "desfavorables": ["rosa frío", "azul eléctrico", "lila", "plateado", "gris frío"],
+    },
+    "otono_oscuro": {
+        "favorables":    ["burdeos", "verde bosque", "marrón oscuro", "ocre",
+                          "dorado antiguo", "cobre", "naranja quemado"],
+        "desfavorables": ["rosa pastel", "azul bebé", "lavanda", "blanco puro"],
+    },
+    "otono_suave": {
+        "favorables":    ["durazno apagado", "verde musgo", "tostado suave",
+                          "terracota claro", "camel claro", "nude cálido"],
+        "desfavorables": ["negro puro", "blanco brillante", "fucsia", "azul cobalto"],
+    },
+    "invierno_frio": {
+        "favorables":    ["rosa frío", "lila", "azul cobalto", "gris perla",
+                          "borgoña profundo", "azul pizarra", "lavanda"],
+        "desfavorables": ["naranja", "mostaza", "verde oliva", "dorado", "camel"],
+    },
+    "invierno_oscuro": {
+        "favorables":    ["negro", "blanco puro", "rojo intenso", "azul marino",
+                          "morado real", "esmeralda oscuro", "plateado"],
+        "desfavorables": ["beige", "camel", "durazno", "verde musgo", "dorado"],
+    },
+    "invierno_brillante": {
+        "favorables":    ["fucsia eléctrico", "azul turquesa", "rojo cereza",
+                          "verde esmeralda", "blanco brillante", "negro", "morado intenso"],
+        "desfavorables": ["nude apagado", "mostaza", "naranja terroso", "camel"],
+    },
+}
+
+# Fallback si subtemporada no está en el mapa
+PALETA_DEFAULT = {
+    "favorables":    ["nude", "blush rosado", "taupe", "vino", "verde salvia", "azul marino"],
+    "desfavorables": ["naranja neón", "amarillo limón", "fucsia intenso"],
 }
 
 
@@ -71,20 +123,24 @@ async def analizar(
             return JSONResponse(status_code=500,
                 content={"error": f"Error en análisis de color: {str(e)}"})
 
-        fototipo  = resultado["fototipo"]
-        subtono   = resultado["subtono"]
-        confianza = resultado["confianza"]
-        paleta    = PALETAS.get(subtono, PALETAS["neutro"])
+        fototipo     = resultado["fototipo"]
+        temporada    = resultado["temporada"]
+        subtemporada = resultado["subtemporada"]
+        confianza    = resultado["confianza"]
+        paleta       = PALETAS.get(subtemporada, PALETA_DEFAULT)
 
-        print(f"[KIREI] fototipo={fototipo}, subtono={subtono}, confianza={confianza}")
+        print(f"[KIREI] fototipo={fototipo}, temporada={temporada}, "
+              f"subtemporada={subtemporada}, confianza={confianza}")
 
         # 4. Insertar en tabla analisis
         try:
             analisis_row = insertar("analisis", {
-                "usuario_id": usuario_id,
-                "fototipo":   fototipo,
-                "subtono":    subtono,
-                "confianza":  confianza,
+                "usuario_id":   usuario_id,
+                "fototipo":     fototipo,
+                "temporada":    temporada,
+                "subtemporada": subtemporada,   # nuevo
+                "confianza":    confianza,
+                # subtono ya no se envía
             })
             print(f"[KIREI] analisis insertado: {analisis_row}")
         except Exception as e:
@@ -114,22 +170,24 @@ async def analizar(
 
         print(f"[KIREI] analisis_id: {analisis_id}")
 
-        # 5. Guardar respuestas cuestionario (no bloquea si falla)
+        # 5. Guardar respuestas cuestionario
         try:
             insertar("respuestas_cuestionario", {
                 "analisis_id": analisis_id,
                 "skin":        datos.get("skin"),
                 "eye":         datos.get("eye"),
                 "hair":        datos.get("hair"),
-                "vein":        datos.get("vein"),
                 "sun":         datos.get("sun"),
                 "freckles":    datos.get("freckles"),
                 "tipo_piel":   datos.get("tipo_piel"),
+                "forearm":     datos.get("forearm"),     # nuevo
+                "hair_shine":  datos.get("hair_shine"),  # nuevo
+                # vein eliminado
             })
         except Exception as e:
             print(f"[KIREI] ADVERTENCIA respuestas_cuestionario: {e}")
 
-        # 6. Guardar recomendaciones (no bloquea si falla)
+        # 6. Guardar recomendaciones de colores
         try:
             for color in paleta["favorables"]:
                 insertar("recomendaciones", {
@@ -144,10 +202,10 @@ async def analizar(
         except Exception as e:
             print(f"[KIREI] ADVERTENCIA recomendaciones: {e}")
 
-        # 7. Consultar productos (no bloquea si falla)
+        # 7. Consultar productos por fototipo
         productos = []
         try:
-            productos = consultar("productos", {"subtono": subtono}) or []
+            productos = consultar("productos", {"fototipo": fototipo}) or []
         except Exception as e:
             print(f"[KIREI] ADVERTENCIA productos: {e}")
 
@@ -156,7 +214,8 @@ async def analizar(
         return {
             "analisis_id":           analisis_id,
             "fototipo":              fototipo,
-            "subtono":               subtono,
+            "temporada":             temporada,
+            "subtemporada":          subtemporada,
             "confianza":             confianza,
             "colores_favorables":    paleta["favorables"],
             "colores_desfavorables": paleta["desfavorables"],
