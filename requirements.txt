@@ -3,7 +3,7 @@ httpx==0.24.1
 anyio==3.7.1
 fastapi==0.104.1
 uvicorn==0.24.0
-opencv-python-headless==4.8.1.78
+opencv-python-headless
 numpy==1.26.2
 pillow==10.1.0
 python-multipart==0.0.6
